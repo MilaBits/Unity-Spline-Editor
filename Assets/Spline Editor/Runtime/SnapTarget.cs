@@ -1,4 +1,4 @@
-﻿using Assets.Spline_Editor;
+﻿using Assets.SplineEditor;
 using System;
 using System.Collections.Generic;
 using System.Linq;

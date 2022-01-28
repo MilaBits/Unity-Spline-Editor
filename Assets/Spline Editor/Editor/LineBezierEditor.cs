@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
-namespace Assets.Spline_Editor
+namespace Assets.SplineEditor
 {
     [CustomEditor(typeof(LineBezier))]
     public class LineBezierEditor : Editor

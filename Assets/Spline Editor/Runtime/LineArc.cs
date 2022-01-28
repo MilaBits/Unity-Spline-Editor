@@ -1,12 +1,14 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace Assets.Spline_Editor
+namespace Assets.SplineEditor
 {
     [RequireComponent(typeof(MeshFilter))]
     [RequireComponent(typeof(MeshRenderer))]
-    [RequireComponent(typeof(MeshCollider))]
+    [RequireComponent(typeof(PolygonCollider2D))]
     [RequireComponent(typeof(SnapTarget))]
     [ExecuteInEditMode]
     internal class LineArc : MonoBehaviour, ISnapTarget
@@ -62,9 +64,9 @@ namespace Assets.Spline_Editor
             mesh.name = "Line Mesh";
             GetComponent<MeshFilter>().sharedMesh = mesh;
 
-            colliderMesh = new Mesh();
-            colliderMesh.name = "Collider";
-            GetComponent<MeshCollider>().sharedMesh = colliderMesh;
+            //colliderMesh = new Mesh();
+            //colliderMesh.name = "Collider";
+            //GetComponent<MeshCollider>().sharedMesh = colliderMesh;
         }
 
         void GenerateMesh()
@@ -72,11 +74,11 @@ namespace Assets.Spline_Editor
             if (mesh != null || colliderMesh != null)
             {
                 mesh.Clear();
-                colliderMesh.Clear();
+                //colliderMesh.Clear();
             }
             else CreateNewMesh();
 
-            List<Vector3> colliderVertices = new List<Vector3>();
+            List<Vector2> colliderVertices = new List<Vector2>();
             List<int> colliderTriangles = new List<int>();
 
             List<Vector3> vertices = new List<Vector3>();
@@ -114,10 +116,10 @@ namespace Assets.Spline_Editor
                 {
                     float t = j * fill / lineSettings.lineSegments;
                     AddLineSegment(lines[i], normals, uvs, t, radius + lineOffset, lineSettings.lineThickness);
-                    if (lineSettings.lineCount > 1 && i == 0) AddLineSegment(colliderVertices, t, radius, (lineSettings.lineThickness*2) + lineOffset);
+                    if (i == 0) AddLineSegment(colliderVertices, t, radius, (lineSettings.lineThickness * lineSettings.lineCount) + lineOffset);
                 }
                 AddLineSegment(lines[i], normals, uvs, fill, radius + lineOffset, lineSettings.lineThickness);
-                if (lineSettings.lineCount > 1 && i == 0) AddLineSegment(colliderVertices, fill, radius, (lineSettings.lineThickness * 2) + lineOffset);
+                if (i == 0) AddLineSegment(colliderVertices, fill, radius, (lineSettings.lineThickness * lineSettings.lineCount) + lineOffset);
 
                 vertices.AddRange(lines[i]);
             }
@@ -140,17 +142,6 @@ namespace Assets.Spline_Editor
                 triangles.Add(indexRoot);
                 triangles.Add(indexInnerRoot);
                 triangles.Add(indexInnerNext);
-
-                if (i < lineSettings.lineSegments)
-                {
-                    colliderTriangles.Add(indexRoot);
-                    colliderTriangles.Add(indexInnerNext);
-                    colliderTriangles.Add(indexOuterNext);
-
-                    colliderTriangles.Add(indexRoot);
-                    colliderTriangles.Add(indexInnerRoot);
-                    colliderTriangles.Add(indexInnerNext);
-                }
             }
 
             mesh.SetVertices(vertices);
@@ -158,17 +149,12 @@ namespace Assets.Spline_Editor
             mesh.SetNormals(normals);
             mesh.SetUVs(0, uvs);
 
-            if (lineSettings.lineCount == 1)
-            {
-                colliderMesh.SetVertices(vertices);
-                colliderMesh.SetTriangles(triangles, 0);
-            }
-            else
-            {
-                colliderMesh.SetVertices(colliderVertices);
-                colliderMesh.SetTriangles(colliderTriangles, 0);
-            }
-            GetComponent<MeshCollider>().sharedMesh = colliderMesh;
+            int half = colliderVertices.Count / 2;
+
+            Vector2[] firstHalf = colliderVertices.Where((x, i) => i % 2 == 1).ToArray();
+            Vector2[] secondHalf = colliderVertices.Where((x, i) => i % 2 == 0).ToArray();
+            Array.Reverse(secondHalf);
+            GetComponent<PolygonCollider2D>().SetPath(0,firstHalf.Concat(secondHalf).ToArray());
         }
 
         void AddLineSegment(List<Vector3> line, List<Vector3> normals, List<Vector2> uvs, float t, float radius, float thickness)
@@ -181,6 +167,16 @@ namespace Assets.Spline_Editor
         }
 
         void AddLineSegment(List<Vector3> line, float t, float radius, float thickness)
+        {
+            float angleRad = t * MathM.TAU;
+            Vector3 lineCenter = MathM.GetVectorByAngle(angleRad) * radius;
+            Vector3 lineOuter = lineCenter + (lineCenter.normalized * (thickness / 2));
+            Vector3 lineInner = lineCenter - (lineCenter.normalized * (thickness / 2));
+            line.Add(lineOuter);
+            line.Add(lineInner);
+        }
+
+        void AddLineSegment(List<Vector2> line, float t, float radius, float thickness)
         {
             float angleRad = t * MathM.TAU;
             Vector3 lineCenter = MathM.GetVectorByAngle(angleRad) * radius;

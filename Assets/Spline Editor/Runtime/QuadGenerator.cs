@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Assets.Spline_Editor
+namespace Assets.SplineEditor
 {
     public class QuadGenerator : MonoBehaviour
     {

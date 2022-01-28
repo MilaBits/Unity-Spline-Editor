@@ -1,7 +1,7 @@
 ﻿using System;
 using UnityEngine;
 
-namespace Assets.Spline_Editor
+namespace Assets.SplineEditor
 {
     [Serializable]
     internal struct LineSettings
