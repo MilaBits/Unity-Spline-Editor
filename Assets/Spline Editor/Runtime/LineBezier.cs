@@ -2,24 +2,23 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
+using System.Linq;
 
 namespace Assets.SplineEditor
 {
     [RequireComponent(typeof(MeshFilter))]
     [RequireComponent(typeof(MeshRenderer))]
-    [RequireComponent(typeof(MeshCollider))]
+    [RequireComponent(typeof(PolygonCollider2D))]
     [RequireComponent(typeof(SnapTarget))]
     [ExecuteInEditMode]
     public class LineBezier : MonoBehaviour, ISnapTarget
     {
-        [SerializeField] [Range(0f, 1f)] float tTest;
         [SerializeField] LineSettings lineSettings = new LineSettings();
         [SerializeField]
 
         public Transform[] controlPoints = new Transform[4];
         bool debug = false;
         Mesh mesh;
-        Mesh colliderMesh;
 
         public Vector3 GetPosition(int i) => controlPoints[i].position;
         OrientedPoint GetBezierOrientedPoint(float t)
@@ -91,30 +90,6 @@ namespace Assets.SplineEditor
             if (debug)
             {
                 Handles.DrawBezier(GetPosition(0), GetPosition(3), GetPosition(1), GetPosition(2), Color.gray, EditorGUIUtility.whiteTexture, 5f);
-                Gizmos.color = Color.magenta;
-
-                OrientedPoint testPoint = GetBezierOrientedPoint(tTest);
-
-                for (int i = 0; i < lineSettings.lineCount; i++)
-                {
-                    Vector3 lineOffset = Vector3.up * (lineSettings.lineSpacing / 2);
-                    Vector3 lineTop = lineOffset + (Vector3.up * (lineSettings.lineThickness / 2));
-                    Vector3 lineBottom = lineOffset - (Vector3.up * (lineSettings.lineThickness / 2));
-                    if (i % 2 == 0)
-                    {
-                        lineBottom *= -1;
-                        lineTop *= -1;
-                    }
-
-                    float radius = 0.01f;
-                    Gizmos.DrawSphere(testPoint.LocalToWorld(lineBottom), radius);
-                    Gizmos.DrawSphere(testPoint.LocalToWorld(lineTop), radius);
-
-                }
-
-                Gizmos.color = Color.green;
-                Gizmos.DrawSphere(testPoint.position, .01f);
-                Handles.PositionHandle(testPoint.position, testPoint.rotation);
             }
         }
         private void OnValidate() => GenerateMesh();
@@ -130,22 +105,23 @@ namespace Assets.SplineEditor
             mesh.name = "Line Mesh";
             GetComponent<MeshFilter>().sharedMesh = mesh;
 
-            colliderMesh = new Mesh();
-            colliderMesh.name = "Collider";
-            GetComponent<MeshCollider>().sharedMesh = colliderMesh;
+            //colliderMesh = new Mesh();
+            //colliderMesh.name = "Collider";
+            //GetComponent<MeshCollider>().sharedMesh = colliderMesh;
         }
 
-        public Vector3 GetLineOffset()
+        private Vector3 GetLineOffset(LineConfiguration line)
         {
-            switch (lineSettings.SingleLinePosition)
+            switch (line)
             {
-                case SingleLinePosition.Center:
+                case LineConfiguration.Center:
+                case LineConfiguration.Double:
                     return Vector3.zero;
                     break;
-                case SingleLinePosition.Left:
+                case LineConfiguration.Left:
                     return Vector3.left * (lineSettings.lineSpacing / 2);
                     break;
-                case SingleLinePosition.Right:
+                case LineConfiguration.Right:
                     return Vector3.right * (lineSettings.lineSpacing / 2);
                     break;
                 default:
@@ -166,57 +142,67 @@ namespace Assets.SplineEditor
         {
             Vector3 lineTop = lineOffset + (Vector3.right * (thickness / 2));
             Vector3 lineBottom = lineOffset - (Vector3.right * (thickness / 2));
-
             line.Add(currentPoint.LocalToWorld(lineTop));
             line.Add(currentPoint.LocalToWorld(lineBottom));
+            if (debug) Debug.DrawLine(currentPoint.LocalToWorld(lineTop), currentPoint.LocalToWorld(lineBottom), Color.red, Time.deltaTime);
+        }
 
+        void AddLineSegment(List<Vector2> line, OrientedPoint currentPoint, Vector3 lineOffset, float thickness)
+        {
+            Vector3 lineTop = lineOffset + (Vector3.right * (thickness / 2));
+            Vector3 lineBottom = lineOffset - (Vector3.right * (thickness / 2));
+            line.Add(currentPoint.LocalToWorld(lineTop));
+            line.Add(currentPoint.LocalToWorld(lineBottom));
             if (debug) Debug.DrawLine(currentPoint.LocalToWorld(lineTop), currentPoint.LocalToWorld(lineBottom), Color.red, Time.deltaTime);
         }
 
         public void GenerateMesh()
         {
-            if (mesh != null || colliderMesh != null)
+            if (mesh != null)
             {
                 mesh.Clear();
-                colliderMesh.Clear();
             }
             else CreateNewMesh();
+
+            List<Vector2> colliderVertices = new List<Vector2>();
 
             List<Vector3> vertices = new List<Vector3>();
             List<Vector3> normals = new List<Vector3>();
             List<Vector2> uvs = new List<Vector2>();
 
-            List<Vector3> colliderVertices = new List<Vector3>();
-            List<int> colliderTriangles = new List<int>();
-
             List<List<Vector3>> lines = new List<List<Vector3>>();
+
+            Vector3 lineOffset = Vector3.zero;
+            lineOffset = GetLineOffset(lineSettings.lineConfiguration);
 
             for (int i = 0; i < lineSettings.lineCount; i++)
             {
                 lines.Add(new List<Vector3>());
 
-                Vector3 lineOffset = Vector3.zero;
-                if (lineSettings.lineCount == 1)
-                    lineOffset = GetLineOffset();
-                else
-                    lineOffset = lineSettings.lineCount > 1 ? ((i % 2 == 0 ? Vector3.right : Vector3.left) * (lineSettings.lineSpacing / 2)) : Vector3.zero;
+                if (lineSettings.lineConfiguration == LineConfiguration.Double)
+                    lineOffset = i == 0 ? GetLineOffset(LineConfiguration.Left) : GetLineOffset(LineConfiguration.Right);
 
                 for (int j = 0; j < lineSettings.lineSegments + 1; j++)
                 {
                     float t = j / (float)lineSettings.lineSegments;
                     OrientedPoint currentPoint = GetBezierOrientedPoint(t);
-
                     AddLineSegment(lines[i], currentPoint, lineOffset, lineSettings.lineThickness);
-                    if (i == 0) AddLineSegment(colliderVertices, currentPoint, Vector3.zero, (lineOffset.magnitude*2) + lineSettings.lineThickness);
 
                 }
                 vertices.AddRange(lines[i]);
             }
 
+            lineOffset = GetLineOffset(lineSettings.lineConfiguration);
+            float thickness = lineSettings.lineConfiguration == LineConfiguration.Double ? 
+                lineSettings.lineSpacing + lineSettings.lineThickness : 
+                lineSettings.lineThickness;
             for (int i = 0; i < lineSettings.lineSegments; i++)
             {
-
+                float t = i / (float)lineSettings.lineSegments;
+                OrientedPoint currentPoint = GetBezierOrientedPoint(t);
+                AddLineSegment(colliderVertices, currentPoint, lineOffset, thickness);
             }
+            AddLineSegment(colliderVertices, GetBezierOrientedPoint(1), lineOffset, thickness);
 
             // Triangles
             List<int> triangles = new List<int>();
@@ -236,17 +222,6 @@ namespace Assets.SplineEditor
                 triangles.Add(indexRoot);
                 triangles.Add(indexInnerRoot);
                 triangles.Add(indexInnerNext);
-
-                if (i < lineSettings.lineSegments)
-                {
-                    colliderTriangles.Add(indexRoot);
-                    colliderTriangles.Add(indexInnerNext);
-                    colliderTriangles.Add(indexOuterNext);
-
-                    colliderTriangles.Add(indexRoot);
-                    colliderTriangles.Add(indexInnerRoot);
-                    colliderTriangles.Add(indexInnerNext);
-                }
             }
 
             mesh.SetVertices(vertices);
@@ -254,17 +229,10 @@ namespace Assets.SplineEditor
             mesh.SetNormals(normals);
             mesh.SetUVs(0, uvs);
 
-            if (lineSettings.lineCount == 1)
-            {
-                colliderMesh.SetVertices(vertices);
-                colliderMesh.SetTriangles(triangles, 0);
-            }
-            else
-            {
-                colliderMesh.SetVertices(colliderVertices);
-                colliderMesh.SetTriangles(colliderTriangles, 0);
-            }
-            GetComponent<MeshCollider>().sharedMesh = colliderMesh;
+            Vector2[] firstHalf = colliderVertices.Where((x, i) => i % 2 == 1).ToArray();
+            Vector2[] secondHalf = colliderVertices.Where((x, i) => i % 2 == 0).ToArray();
+            Array.Reverse(secondHalf);
+            GetComponent<PolygonCollider2D>().SetPath(0, firstHalf.Concat(secondHalf).ToArray());
         }
     }
 }

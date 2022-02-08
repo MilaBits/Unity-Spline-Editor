@@ -99,9 +99,8 @@ MonoBehaviour:
   radius: 1
   fill: 1
   lineSettings:
-    lineCount: 2
     lineSegments: 32
     lineThickness: 0.05
     lineSpacing: 0.1
-    SingleLinePosition: 0
+    lineConfiguration: 0
   debug: 0

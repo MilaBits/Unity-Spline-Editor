@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Assets.SplineEditor
 {
-    internal static class GismosM
+    internal static class GizmosM
     {
         public static void DrawWireCircle(Vector3 pos, Quaternion rot, float radius, int detail = 32)
         {

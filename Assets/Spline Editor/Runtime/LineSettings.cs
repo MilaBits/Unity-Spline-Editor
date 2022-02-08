@@ -6,18 +6,22 @@ namespace Assets.SplineEditor
     [Serializable]
     internal struct LineSettings
     {
-        [Range(1,2)]
-        public int lineCount;
+        //[Range(1,2)]
+        //public int lineCount;
         public int lineSegments;
         public float lineThickness;
         public float lineSpacing;
-        public SingleLinePosition SingleLinePosition;
+        public LineConfiguration lineConfiguration;
+
+        public int lineCount => lineConfiguration == LineConfiguration.Double ? 2 : 1;
     }
 
-    internal enum SingleLinePosition
+
+    internal enum LineConfiguration
     {
         Center,
         Left,
-        Right
+        Right,
+        Double,
     }
 }

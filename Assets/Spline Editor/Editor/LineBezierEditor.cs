@@ -162,13 +162,14 @@ namespace Assets.SplineEditor
 
             lineBezier = (LineBezier)target;
 
-            DrawControlPointGUI(0,"Start");
-            DrawControlPointGUI(3,"End");
-
-            if (GUILayout.Button("Straighten"))
+            showPoints = EditorGUILayout.Foldout(showPoints, "Handle Details");
+            if (showPoints)
             {
-                Straighten();
+                DrawControlPointGUI(0, "Start");
+                DrawControlPointGUI(3, "End");
             }
+
+            if (GUILayout.Button("Straighten")) Straighten();
 
             //for (int i = 0;i < lineBezier.controlPoints.Length; i++)
             //{
@@ -198,8 +199,6 @@ namespace Assets.SplineEditor
 
             //    //controlPointSO.ApplyModifiedProperties();
             //}
-
-
         }
 
         private void Straighten()
@@ -210,6 +209,7 @@ namespace Assets.SplineEditor
             lineBezier.GenerateMesh();
         }
 
+        bool showPoints = false;
         private void DrawControlPointGUI(int i, string label)
         {
             Transform transform = lineBezier.controlPoints[i];
@@ -241,6 +241,7 @@ namespace Assets.SplineEditor
                 transform.localScale = ValidateVector(scale);
                 lineBezier.GenerateMesh();
             }
+
         }
 
         private static Vector3 DrawVector3(string name, Vector3 value)

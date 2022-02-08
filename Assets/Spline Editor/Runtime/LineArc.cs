@@ -22,15 +22,15 @@ namespace Assets.SplineEditor
         int vertexCount => lineSettings.lineSegments * 2;
 
         Mesh mesh;
-        Mesh colliderMesh;
+        //Mesh colliderMesh;
 
         private void OnDrawGizmos()
         {
             if (debug)
             {
                 Gizmos.color = Color.red;
-                GismosM.DrawWireArc(transform.position, transform.rotation, radius, fill, lineSettings.lineSegments);
-
+                GizmosM.DrawWireArc(transform.position, transform.rotation, radius, fill, lineSettings.lineSegments);
+                
                 for (int i = 0; i < lineSettings.lineCount; i++)
                 {
                     float lineOffset = radius;
@@ -44,10 +44,10 @@ namespace Assets.SplineEditor
                     float lineInner = lineOffset - (lineSettings.lineThickness / 2);
 
                     Gizmos.color = Color.green;
-                    GismosM.DrawWireArc(transform.position, transform.rotation, lineOffset, fill, lineSettings.lineSegments);
+                    GizmosM.DrawWireArc(transform.position, transform.rotation, lineOffset, fill, lineSettings.lineSegments);
                     Gizmos.color = Color.magenta;
-                    GismosM.DrawWireArc(transform.position, transform.rotation, lineOuter, fill, lineSettings.lineSegments);
-                    GismosM.DrawWireArc(transform.position, transform.rotation, lineInner, fill, lineSettings.lineSegments);
+                    GizmosM.DrawWireArc(transform.position, transform.rotation, lineOuter, fill, lineSettings.lineSegments);
+                    GizmosM.DrawWireArc(transform.position, transform.rotation, lineInner, fill, lineSettings.lineSegments);
                 }
             }
         }
@@ -63,18 +63,13 @@ namespace Assets.SplineEditor
             mesh = new Mesh();
             mesh.name = "Line Mesh";
             GetComponent<MeshFilter>().sharedMesh = mesh;
-
-            //colliderMesh = new Mesh();
-            //colliderMesh.name = "Collider";
-            //GetComponent<MeshCollider>().sharedMesh = colliderMesh;
         }
 
         void GenerateMesh()
         {
-            if (mesh != null || colliderMesh != null)
+            if (mesh != null)
             {
                 mesh.Clear();
-                //colliderMesh.Clear();
             }
             else CreateNewMesh();
 
@@ -86,43 +81,35 @@ namespace Assets.SplineEditor
             List<Vector2> uvs = new List<Vector2>();
 
             List<List<Vector3>> lines = new List<List<Vector3>>();
+
+            float lineOffset = 0;
+            lineOffset = GetOffset(lineSettings.lineConfiguration);
+
             for (int i = 0; i < lineSettings.lineCount; i++)
             {
                 lines.Add(new List<Vector3>());
 
-                float lineOffset = 0;
-                if (lineSettings.lineCount == 1)
-                {
-                    switch (lineSettings.SingleLinePosition)
-                    {
-                        case SingleLinePosition.Center:
-                            lineOffset = 0;
-                            break;
-                        case SingleLinePosition.Left:
-                            lineOffset = lineSettings.lineSpacing / 2;
-                            break;
-                        case SingleLinePosition.Right:
-                            lineOffset = -lineSettings.lineSpacing / 2;
-                            break;
-                    }
-                }
-                else
-                {
-                    if (i % 2 == 0) lineOffset += lineSettings.lineSpacing / 2;
-                    else lineOffset -= lineSettings.lineSpacing / 2;
-                }
+                if (lineSettings.lineConfiguration == LineConfiguration.Double)
+                    lineOffset = i == 0 ? GetOffset(LineConfiguration.Left) : GetOffset(LineConfiguration.Right);
 
                 for (int j = 0; j < lineSettings.lineSegments; j++)
                 {
                     float t = j * fill / lineSettings.lineSegments;
                     AddLineSegment(lines[i], normals, uvs, t, radius + lineOffset, lineSettings.lineThickness);
-                    if (i == 0) AddLineSegment(colliderVertices, t, radius, (lineSettings.lineThickness * lineSettings.lineCount) + lineOffset);
                 }
                 AddLineSegment(lines[i], normals, uvs, fill, radius + lineOffset, lineSettings.lineThickness);
-                if (i == 0) AddLineSegment(colliderVertices, fill, radius, (lineSettings.lineThickness * lineSettings.lineCount) + lineOffset);
 
                 vertices.AddRange(lines[i]);
             }
+
+            lineOffset = GetOffset(lineSettings.lineConfiguration);
+            float spacing = lineSettings.lineCount > 1 ? lineSettings.lineSpacing : 0;
+            for (int i = 0; i < lineSettings.lineSegments; i++)
+            {
+                float t = i * fill / lineSettings.lineSegments;
+                AddLineSegment(colliderVertices, t, radius + lineOffset, spacing + lineSettings.lineThickness);
+            }
+            AddLineSegment(colliderVertices, fill, radius + lineOffset, spacing + lineSettings.lineThickness);
 
             // Triangles
             List<int> triangles = new List<int>();
@@ -154,7 +141,23 @@ namespace Assets.SplineEditor
             Vector2[] firstHalf = colliderVertices.Where((x, i) => i % 2 == 1).ToArray();
             Vector2[] secondHalf = colliderVertices.Where((x, i) => i % 2 == 0).ToArray();
             Array.Reverse(secondHalf);
-            GetComponent<PolygonCollider2D>().SetPath(0,firstHalf.Concat(secondHalf).ToArray());
+            GetComponent<PolygonCollider2D>().SetPath(0, firstHalf.Concat(secondHalf).ToArray());
+        }
+
+        private float GetOffset(LineConfiguration line)
+        {
+            switch (line)
+            {
+                case LineConfiguration.Double:
+                case LineConfiguration.Center:
+                    return 0f;
+                case LineConfiguration.Left:
+                    return lineSettings.lineSpacing / 2f;
+                case LineConfiguration.Right:
+                    return -lineSettings.lineSpacing / 2f;
+                default:
+                    return 0f;
+            }
         }
 
         void AddLineSegment(List<Vector3> line, List<Vector3> normals, List<Vector2> uvs, float t, float radius, float thickness)
