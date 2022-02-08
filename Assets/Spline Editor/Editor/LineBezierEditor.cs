@@ -27,7 +27,6 @@ namespace Assets.SplineEditor
             Handles.DrawDottedLine(lineBezier.GetPosition(0), lineBezier.GetPosition(1), 5);
             Handles.DrawDottedLine(lineBezier.GetPosition(3), lineBezier.GetPosition(2), 5);
 
-
             LineCapHandle(0);
             LineCapHandle(3);
 
@@ -147,7 +146,6 @@ namespace Assets.SplineEditor
                 }
             }
 
-            Debug.Log(shortestDistance);
             if (shortestDistance <= snapRange)
             {
                 result = closest;
@@ -166,6 +164,11 @@ namespace Assets.SplineEditor
 
             DrawControlPointGUI(0,"Start");
             DrawControlPointGUI(3,"End");
+
+            if (GUILayout.Button("Straighten"))
+            {
+                Straighten();
+            }
 
             //for (int i = 0;i < lineBezier.controlPoints.Length; i++)
             //{
@@ -197,6 +200,14 @@ namespace Assets.SplineEditor
             //}
 
 
+        }
+
+        private void Straighten()
+        {
+            float third = 1f / 3;
+            lineBezier.controlPoints[1].position = Vector3.Lerp(lineBezier.controlPoints[0].position, lineBezier.controlPoints[3].position, third);
+            lineBezier.controlPoints[2].position = Vector3.Lerp(lineBezier.controlPoints[0].position, lineBezier.controlPoints[3].position, third*2);
+            lineBezier.GenerateMesh();
         }
 
         private void DrawControlPointGUI(int i, string label)
