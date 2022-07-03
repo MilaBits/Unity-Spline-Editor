@@ -12,6 +12,7 @@ namespace Assets.SplineEditor
     public class LineBezierEditor : Editor
     {
         float size = 1f;
+        float snapDistance = .1f;
 
         bool showChildTransforms = false;
 
@@ -24,99 +25,119 @@ namespace Assets.SplineEditor
             Gizmos.color = Color.gray;
             Transform transform = lineBezier.transform;
 
-            Handles.DrawDottedLine(lineBezier.GetPosition(0), lineBezier.GetPosition(1), 5);
-            Handles.DrawDottedLine(lineBezier.GetPosition(3), lineBezier.GetPosition(2), 5);
+            LineCapHandle(lineBezier.controlPoints[0], lineBezier.controlPoints[1]);
+            LineCapHandle(lineBezier.controlPoints[3], lineBezier.controlPoints[2]);
 
-            LineCapHandle(0);
-            LineCapHandle(3);
-
-            TangentHandle(0,1);
-            TangentHandle(3,2);
+            if (lineBezier.lineSettings.lineSegments >1)
+            {
+                TangentHandle(lineBezier.controlPoints[0], lineBezier.controlPoints[1]);
+                TangentHandle(lineBezier.controlPoints[3], lineBezier.controlPoints[2]);
+            }
         }
 
-        private void TangentHandle(int cap, int tangent)
+        private void TangentHandle(Transform cap, Transform tangent)
         {
             EditorGUI.BeginChangeCheck();
-            Vector3 newTargetPosition = Handles.PositionHandle(lineBezier.GetPosition(tangent), Quaternion.identity);
+            Vector3 newTargetPosition = Handles.PositionHandle(tangent.position, Quaternion.identity);
+            Handles.CircleHandleCap(0,tangent.position, Quaternion.identity, HandleUtility.GetHandleSize(tangent.position)/4, EventType.Repaint);
+            Handles.DrawDottedLine(cap.position, tangent.position, 5);
+
             if (EditorGUI.EndChangeCheck())
             {
-                Undo.RecordObject(lineBezier, "Change Look At Target Position");
+                Undo.RecordObject(tangent, "Change Look At Target Position");
 
-                lineBezier.controlPoints[tangent].position = newTargetPosition;
-                lineBezier.controlPoints[cap].LookAt(newTargetPosition.normalized, Vector3.back);
-                lineBezier.controlPoints[cap].localScale = Vector3.one * Vector3.Distance(lineBezier.GetPosition(cap), lineBezier.GetPosition(tangent));
+                newTargetPosition.z = 0;
+                tangent.position = newTargetPosition;
+                cap.localScale = Vector3.one * Vector3.Distance(cap.position, tangent.position);
+                FixEndCap(cap);
+
                 lineBezier.GenerateMesh();
             }
-
         }
 
-        private void LineCapHandle(int cap)
+        private void FixEndCap(Transform cap) => cap.right = cap.position - cap.GetChild(0).position;
+
+        private void LineCapHandle(Transform  cap, Transform tangent)
         {
-
-            Vector3 point =       lineBezier.controlPoints[cap].position;
-            Vector3 scale =       lineBezier.controlPoints[cap].localScale;
-            Quaternion rotation = lineBezier.controlPoints[cap].rotation;
-
-            Quaternion handleRotation = rotation;
-
             if (Tools.current == Tool.Move)
             {
                 EditorGUI.BeginChangeCheck();
-                point = Handles.DoPositionHandle(point, handleRotation);
+
+                switch (Event.current.modifiers)
+                {
+                    case EventModifiers.Shift:
+                        break;
+                    case EventModifiers.Alt:
+                        Handles.color = Color.gray;
+                        Handles.CircleHandleCap(0, cap.position, Quaternion.identity, snapDistance, Event.current.type);
+                        break;
+                    case EventModifiers.Alt | EventModifiers.Shift:
+                        Handles.color = Color.yellow;
+                        Handles.CircleHandleCap(0, cap.position, Quaternion.identity, snapDistance, Event.current.type);
+                        break;
+                }
+
+                Vector3 point = Handles.DoPositionHandle(cap.position, cap.rotation);
+                point.z = 0;
                 if (EditorGUI.EndChangeCheck())
                 {
-                    Undo.RecordObject(lineBezier.controlPoints[cap], "Moved Bezier Point");
+                    if (lineBezier.lineSettings.lineSegments < 2)
+                    {
+                        Undo.RecordObject(lineBezier.controlPoints[2], "Straighten Tangent");
+                        Undo.RecordObject(lineBezier.controlPoints[3], "Straighten Tangent");
+                        Straighten();
+                    }
+                    Undo.RecordObject(cap, "Moved Bezier Point");
 
                     switch (Event.current.modifiers)
                     {
-                        case EventModifiers.Shift:
-                            lineBezier.controlPoints[cap].position = Vector3Int.RoundToInt(point);
-                            break;
                         case EventModifiers.Alt:
-                            Vector3 mousePosition = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition).origin;
-                            mousePosition.z = 0;
-                            OrientedPoint target;
-                            if (ClosestSnapPoint(mousePosition, .5f, out target))
+                            if (SnapToEdge(cap, out Transform snapTarget))
                             {
-                                lineBezier.controlPoints[cap].position = target.position;
-                                //lineBezier.controlPoints[i].rotation = target.rotation;
+                                cap.position = snapTarget.position;
                             }
                             else
                             {
-                                lineBezier.controlPoints[cap].position = point;
+                                cap.position = point;
+                            }
+                            break;
+                        case EventModifiers.Alt | EventModifiers.Shift:
+                            if (SnapToEdge(cap, out Transform rotateSnapTarget))
+                            {
+                                cap.position = rotateSnapTarget.position;
+                                float magnitude = Vector3.Distance(cap.position, tangent.position);
+                                tangent.position = cap.position + rotateSnapTarget.right * magnitude;
+                            }
+                            else
+                            {
+                                cap.position = point;
                             }
                             break;
                         default:
-                            lineBezier.controlPoints[cap].position = point;
+                            cap.position = point;
                             break;
                     }
                     lineBezier.GenerateMesh();
                 }
             }
-            
-            //if (Tools.current == Tool.Rotate)
-            //{
-            //    EditorGUI.BeginChangeCheck();
-            //    rotation = Handles.DoRotationHandle(handleRotation, point);
-            //    if (EditorGUI.EndChangeCheck())
-            //    {
-            //        Undo.RecordObject(lineBezier.controlPoints[cap], "Rotated Bezier Point");
-            //        lineBezier.controlPoints[cap].rotation = rotation;
-            //        lineBezier.GenerateMesh();
-            //    }
-            //}
+        }
 
-            //if (Tools.current == Tool.Scale)
-            //{
-            //    EditorGUI.BeginChangeCheck();
-            //    scale = Handles.DoScaleHandle(scale, point, handleRotation, scale.y);
-            //    if (EditorGUI.EndChangeCheck())
-            //    {
-            //        Undo.RecordObject(lineBezier.controlPoints[cap], "Scaled Bezier Point");
-            //        lineBezier.controlPoints[cap].localScale = scale;
-            //        lineBezier.GenerateMesh();
-            //    }
-            //}
+        private bool SnapToEdge(Transform current, out Transform target)
+        {
+            Vector3 mousePosition = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition).origin;
+            mousePosition.z = 0;
+
+            List<Transform> points = GameObject.FindGameObjectsWithTag("LinePoint").Select(x => x.transform).ToList();
+            for (int i = 0; i < current.parent.childCount; i++) points.Remove(current.parent.GetChild(i));
+            Transform point = points.OrderBy(x => Vector3.Distance(current.position, x.position)).FirstOrDefault();
+            float distance = Vector3.Distance(mousePosition, new Vector3(point.position.x, point.position.y, 0));
+            if (point != null && distance <= snapDistance)
+            {
+                target = point;
+                return true;
+            }
+            target = null;
+            return false;
         }
 
         private bool ClosestSnapPoint(Vector3 origin, float snapRange, out OrientedPoint result)
@@ -170,35 +191,6 @@ namespace Assets.SplineEditor
             }
 
             if (GUILayout.Button("Straighten")) Straighten();
-
-            //for (int i = 0;i < lineBezier.controlPoints.Length; i++)
-            //{
-            //    if (lineBezier.controlPoints[i] == null) continue;
-
-            //    DrawControlPointGUI(i);
-
-            //    //SerializedProperty propPos = controlPointSO.FindProperty("m_LocalPosition");
-            //    //SerializedProperty propRot = controlPointSO.FindProperty("m_LocalRotation");
-
-            //    //EditorGUILayout.LabelField(lineBezier.controlPoints[i].name);
-            //    //EditorGUI.BeginChangeCheck();
-            //    //EditorGUILayout.PropertyField(propPos, new GUIContent("Position"));
-            //    //if (EditorGUI.EndChangeCheck())
-            //    //{
-            //    //    Undo.RecordObject(lineBezier.controlPoints[i], "Changed Bezier Point");
-            //    //    lineBezier.GenerateMesh();
-            //    //}
-
-            //    //EditorGUI.BeginChangeCheck();
-            //    //EditorGUILayout.PropertyField(propRot, new GUIContent("Rotation"));
-            //    //if (EditorGUI.EndChangeCheck())
-            //    //{
-            //    //    Undo.RecordObject(lineBezier.controlPoints[i], "Changed Bezier Point");
-            //    //    lineBezier.GenerateMesh();
-            //    //}
-
-            //    //controlPointSO.ApplyModifiedProperties();
-            //}
         }
 
         private void Straighten()

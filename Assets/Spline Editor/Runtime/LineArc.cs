@@ -48,6 +48,12 @@ namespace Assets.SplineEditor
                     Gizmos.color = Color.magenta;
                     GizmosM.DrawWireArc(transform.position, transform.rotation, lineOuter, fill, lineSettings.lineSegments);
                     GizmosM.DrawWireArc(transform.position, transform.rotation, lineInner, fill, lineSettings.lineSegments);
+
+
+                    Transform start = transform.GetChild(0).transform;
+                    Transform end = transform.GetChild(1).transform;
+                    Handles.DrawLine(start.position, start.TransformPoint(Vector3.right*.1f), 0);
+                    Handles.DrawLine(end.position, end.TransformPoint(Vector3.right*.1f), 0);
                 }
             }
         }
@@ -56,7 +62,16 @@ namespace Assets.SplineEditor
         {
             GetComponent<SnapTarget>().target = this;
             GenerateMesh();
+
+            Undo.undoRedoPerformed += OnUndoRedo;
         }
+
+        private void OnUndoRedo()
+        {
+            mesh.Clear();
+            GenerateMesh();
+        }
+
         private void OnValidate() => GenerateMesh();
         private void CreateNewMesh()
         {
@@ -72,6 +87,7 @@ namespace Assets.SplineEditor
                 mesh.Clear();
             }
             else CreateNewMesh();
+
 
             List<Vector2> colliderVertices = new List<Vector2>();
             List<int> colliderTriangles = new List<int>();
@@ -142,6 +158,13 @@ namespace Assets.SplineEditor
             Vector2[] secondHalf = colliderVertices.Where((x, i) => i % 2 == 0).ToArray();
             Array.Reverse(secondHalf);
             GetComponent<PolygonCollider2D>().SetPath(0, firstHalf.Concat(secondHalf).ToArray());
+
+            //float degrees = fill / 360;
+
+            transform.GetChild(0).transform.position = transform.TransformPoint(MathM.GetVectorByAngle(0 * MathM.TAU) * radius);
+            transform.GetChild(0).transform.rotation = Quaternion.Euler(0, 0, 0);
+            transform.GetChild(1).transform.position = transform.TransformPoint(MathM.GetVectorByAngle(fill * MathM.TAU) * radius);
+            transform.GetChild(1).transform.rotation = Quaternion.Euler(0, 0, 180+(360*fill));
         }
 
         private float GetOffset(LineConfiguration line)

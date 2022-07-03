@@ -13,9 +13,8 @@ namespace Assets.SplineEditor
     [ExecuteInEditMode]
     public class LineBezier : MonoBehaviour, ISnapTarget
     {
-        [SerializeField] LineSettings lineSettings = new LineSettings();
+        public LineSettings lineSettings = new LineSettings();
         [SerializeField]
-
         public Transform[] controlPoints = new Transform[4];
         bool debug = false;
         Mesh mesh;
@@ -97,6 +96,14 @@ namespace Assets.SplineEditor
         {
             GetComponent<SnapTarget>().target = this;
             GenerateMesh();
+
+            Undo.undoRedoPerformed += OnUndoRedo;
+        }
+
+        private void OnUndoRedo()
+        {
+            mesh = null;
+            GenerateMesh();
         }
 
         private void CreateNewMesh()
@@ -104,10 +111,6 @@ namespace Assets.SplineEditor
             mesh = new Mesh();
             mesh.name = "Line Mesh";
             GetComponent<MeshFilter>().sharedMesh = mesh;
-
-            //colliderMesh = new Mesh();
-            //colliderMesh.name = "Collider";
-            //GetComponent<MeshCollider>().sharedMesh = colliderMesh;
         }
 
         private Vector3 GetLineOffset(LineConfiguration line)

@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Assets.SplineEditor
 {
     [Serializable]
-    internal struct LineSettings
+    public struct LineSettings
     {
         //[Range(1,2)]
         //public int lineCount;
@@ -17,7 +17,7 @@ namespace Assets.SplineEditor
     }
 
 
-    internal enum LineConfiguration
+    public enum LineConfiguration
     {
         Center,
         Left,
