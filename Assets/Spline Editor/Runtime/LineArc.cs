@@ -159,12 +159,10 @@ namespace Assets.SplineEditor
             Array.Reverse(secondHalf);
             GetComponent<PolygonCollider2D>().SetPath(0, firstHalf.Concat(secondHalf).ToArray());
 
-            //float degrees = fill / 360;
-
             transform.GetChild(0).transform.position = transform.TransformPoint(MathM.GetVectorByAngle(0 * MathM.TAU) * radius);
-            transform.GetChild(0).transform.rotation = Quaternion.Euler(0, 0, 0);
+            transform.GetChild(0).transform.rotation = Quaternion.Euler(0, 0, -90 + transform.rotation.eulerAngles.z);
             transform.GetChild(1).transform.position = transform.TransformPoint(MathM.GetVectorByAngle(fill * MathM.TAU) * radius);
-            transform.GetChild(1).transform.rotation = Quaternion.Euler(0, 0, 180+(360*fill));
+            transform.GetChild(1).transform.rotation = Quaternion.Euler(0, 0, 90 + transform.rotation.eulerAngles.z + (360 * fill));
         }
 
         private float GetOffset(LineConfiguration line)

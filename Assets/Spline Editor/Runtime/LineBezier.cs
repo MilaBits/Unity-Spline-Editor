@@ -102,7 +102,7 @@ namespace Assets.SplineEditor
 
         private void OnUndoRedo()
         {
-            mesh = null;
+            if (mesh) mesh.Clear();
             GenerateMesh();
         }
 
@@ -161,10 +161,7 @@ namespace Assets.SplineEditor
 
         public void GenerateMesh()
         {
-            if (mesh != null)
-            {
-                mesh.Clear();
-            }
+            if (mesh) mesh.Clear();
             else CreateNewMesh();
 
             List<Vector2> colliderVertices = new List<Vector2>();

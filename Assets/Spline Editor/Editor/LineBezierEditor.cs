@@ -57,6 +57,15 @@ namespace Assets.SplineEditor
 
         private void FixEndCap(Transform cap) => cap.right = cap.position - cap.GetChild(0).position;
 
+        private void FixStraightEndCaps() 
+        {
+            Transform p0 = lineBezier.controlPoints[0];
+            Transform p1 = lineBezier.controlPoints[3];
+
+            p0.right = p0.position - p1.position;
+            p1.right = p1.position - p0.position;
+        }
+
         private void LineCapHandle(Transform  cap, Transform tangent)
         {
             if (Tools.current == Tool.Move)
@@ -198,6 +207,7 @@ namespace Assets.SplineEditor
             float third = 1f / 3;
             lineBezier.controlPoints[1].position = Vector3.Lerp(lineBezier.controlPoints[0].position, lineBezier.controlPoints[3].position, third);
             lineBezier.controlPoints[2].position = Vector3.Lerp(lineBezier.controlPoints[0].position, lineBezier.controlPoints[3].position, third*2);
+            FixStraightEndCaps();
             lineBezier.GenerateMesh();
         }
 
