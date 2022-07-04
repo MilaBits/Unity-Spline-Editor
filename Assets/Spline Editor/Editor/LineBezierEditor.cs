@@ -14,12 +14,21 @@ namespace Assets.SplineEditor
         float size = 1f;
         float snapDistance = .1f;
 
+        float minTangentLength = .1f;
+        float maxTangentLength = 100f;
+
         bool showChildTransforms = false;
+
+        float addRotation = 0;
 
         LineBezier lineBezier;
 
+        bool snapped;
+
         void OnSceneGUI()
         {
+            if (Event.current.type == EventType.MouseUp && Event.current.button == 0) snapped = false;
+
             lineBezier = (LineBezier)target;
 
             Gizmos.color = Color.gray;
@@ -37,20 +46,55 @@ namespace Assets.SplineEditor
 
         private void TangentHandle(Transform cap, Transform tangent)
         {
-            EditorGUI.BeginChangeCheck();
-            Vector3 newTargetPosition = Handles.PositionHandle(tangent.position, Quaternion.identity);
-            Handles.CircleHandleCap(0,tangent.position, Quaternion.identity, HandleUtility.GetHandleSize(tangent.position)/4, EventType.Repaint);
             Handles.DrawDottedLine(cap.position, tangent.position, 5);
+            Handles.CircleHandleCap(0, tangent.position, Quaternion.identity, HandleUtility.GetHandleSize(tangent.position) / 4, EventType.Repaint);
+            Vector3 snapPoint = Vector3.zero;
+            bool doSnap = false;
+            switch (Event.current.modifiers)
+            {
+                case EventModifiers.Shift:
+                    if (doSnap = SnapToEdge(cap, out Transform snapTarget))
+                    {
+                        float distance = Mathf.Clamp(Vector3.Distance(cap.position, tangent.position), minTangentLength, maxTangentLength);
+                        List<Vector3> snaps = new List<Vector3> {
+                        snapTarget.TransformPoint(snapTarget.up * distance), snapTarget.TransformPoint(-snapTarget.up * distance),
+                        snapTarget.TransformPoint(snapTarget.right * distance), snapTarget.TransformPoint(-snapTarget.right * distance)
+                    };
+                        snapPoint = snaps.OrderBy(x => Vector3.Distance(tangent.position, x)).FirstOrDefault();
+                        Handles.color = Color.gray;
+                        Handles.CircleHandleCap(0, snapPoint, Quaternion.identity, snapDistance, EventType.Repaint);
+                        Debug.DrawLine(snapPoint, tangent.position, doSnap ? Color.green : Color.red, Time.deltaTime);
+                    }
+                    break;
+            }
 
+            if (snapped) return;
+            EditorGUI.BeginChangeCheck();
+            Vector3 point = Handles.PositionHandle(tangent.position, Quaternion.identity);
+            point.z = 0;
             if (EditorGUI.EndChangeCheck())
             {
                 Undo.RecordObject(tangent, "Change Look At Target Position");
-
-                newTargetPosition.z = 0;
-                tangent.position = newTargetPosition;
+                Undo.RecordObject(cap, "Change Look At Target Position");
                 cap.localScale = Vector3.one * Vector3.Distance(cap.position, tangent.position);
+                switch (Event.current.modifiers)
+                {
+                    case EventModifiers.Shift:
+                        if (doSnap)
+                        {
+                            Debug.Log("snap");
+                            tangent.position = snapPoint;
+                        }
+                        else
+                        {
+                            tangent.position = point;
+                        }
+                        break;
+                    default:
+                        tangent.position = point;
+                        break;
+                }
                 FixEndCap(cap);
-
                 lineBezier.GenerateMesh();
             }
         }
@@ -70,8 +114,6 @@ namespace Assets.SplineEditor
         {
             if (Tools.current == Tool.Move)
             {
-                EditorGUI.BeginChangeCheck();
-
                 switch (Event.current.modifiers)
                 {
                     case EventModifiers.Shift:
@@ -86,6 +128,7 @@ namespace Assets.SplineEditor
                         break;
                 }
 
+                EditorGUI.BeginChangeCheck();
                 Vector3 point = Handles.DoPositionHandle(cap.position, cap.rotation);
                 point.z = 0;
                 if (EditorGUI.EndChangeCheck())
@@ -115,7 +158,7 @@ namespace Assets.SplineEditor
                             {
                                 cap.position = rotateSnapTarget.position;
                                 float magnitude = Vector3.Distance(cap.position, tangent.position);
-                                tangent.position = cap.position + rotateSnapTarget.right * magnitude;
+                                tangent.position = cap.position + Quaternion.Euler(0,0, addRotation) * rotateSnapTarget.right * magnitude;
                             }
                             else
                             {
@@ -133,13 +176,13 @@ namespace Assets.SplineEditor
 
         private bool SnapToEdge(Transform current, out Transform target)
         {
-            Vector3 mousePosition = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition).origin;
-            mousePosition.z = 0;
+            //Vector3 mousePosition = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition).origin;
+            //mousePosition.z = 0;
 
             List<Transform> points = GameObject.FindGameObjectsWithTag("LinePoint").Select(x => x.transform).ToList();
             for (int i = 0; i < current.parent.childCount; i++) points.Remove(current.parent.GetChild(i));
             Transform point = points.OrderBy(x => Vector3.Distance(current.position, x.position)).FirstOrDefault();
-            float distance = Vector3.Distance(mousePosition, new Vector3(point.position.x, point.position.y, 0));
+            float distance = Vector3.Distance(current.position, new Vector3(point.position.x, point.position.y, 0));
             if (point != null && distance <= snapDistance)
             {
                 target = point;
