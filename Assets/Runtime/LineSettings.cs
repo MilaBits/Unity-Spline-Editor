@@ -1,7 +1,7 @@
 ﻿using System;
 using UnityEngine;
 
-namespace Assets.SplineEditor
+namespace SplineEditor
 {
     [Serializable]
     public struct LineSettings
@@ -11,6 +11,7 @@ namespace Assets.SplineEditor
         public int lineSegments;
         public float lineThickness;
         public float lineSpacing;
+        public Color lineColor;
         public LineConfiguration lineConfiguration;
 
         public int lineCount => lineConfiguration == LineConfiguration.Double ? 2 : 1;

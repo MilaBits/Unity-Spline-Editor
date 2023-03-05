@@ -1,23 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
-namespace Assets.SplineEditor
+namespace SplineEditor
 {
     [CustomEditor(typeof(LineBezier))]
     public class LineBezierEditor : Editor
     {
-        float size = 1f;
         float snapDistance = .1f;
 
         float minTangentLength = .1f;
         float maxTangentLength = 100f;
-
-        bool showChildTransforms = false;
 
         float addRotation = 0;
 
@@ -27,7 +21,9 @@ namespace Assets.SplineEditor
 
         void OnSceneGUI()
         {
-            if (Event.current.type == EventType.MouseUp && Event.current.button == 0) snapped = false;
+            Event e = Event.current;
+
+            if (e.type == EventType.MouseUp && e.button == 0) snapped = false;
 
             lineBezier = (LineBezier)target;
 

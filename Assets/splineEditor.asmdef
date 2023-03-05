@@ -1,7 +1,10 @@
 {
     "name": "SplineEditor",
     "rootNamespace": "SplineEditor",
-    "references": [],
+    "references": [
+        "GUID:234839f5b92104d4fb68841aefec625b",
+        "GUID:13a6fdc14ca9df84eb8019bc66fa9e5d"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

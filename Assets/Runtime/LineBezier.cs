@@ -3,15 +3,16 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using System.Linq;
+using Shapes;
 
-namespace Assets.SplineEditor
+namespace SplineEditor
 {
     [RequireComponent(typeof(MeshFilter))]
     [RequireComponent(typeof(MeshRenderer))]
     [RequireComponent(typeof(PolygonCollider2D))]
     [RequireComponent(typeof(SnapTarget))]
     [ExecuteInEditMode]
-    public class LineBezier : MonoBehaviour, ISnapTarget
+    public class LineBezier : ImmediateModeShapeDrawer, ISnapTarget
     {
         public LineSettings lineSettings = new LineSettings();
         [SerializeField]
@@ -54,6 +55,71 @@ namespace Assets.SplineEditor
             Vector3 e = Vector3.Lerp(b, c, t);
 
             return (e - d).normalized;
+        }
+        public override void DrawShapes(Camera cam)
+        {
+            using (Draw.Command(cam))
+            {
+                Draw.LineGeometry = LineGeometry.Flat2D;
+                Draw.ThicknessSpace = ThicknessSpace.Meters;
+                Draw.Thickness = lineSettings.lineThickness;
+
+                Draw.Matrix = transform.localToWorldMatrix;
+
+                //List<Vector3> points = GetLinePoints(lineSettings.lineConfiguration);
+
+
+                switch (lineSettings.lineConfiguration)
+                {
+                    case LineConfiguration.Center:
+                        if (lineSettings.lineSegments == 1) Draw.Line(GetBezierOrientedPoint(0).position, GetBezierOrientedPoint(3).position, lineSettings.lineColor);
+                        else
+                        {
+                            PolylinePath path = new PolylinePath();
+                            path.AddPoints(GetLinePoints(lineSettings.lineConfiguration));
+                            Draw.Polyline(path, false, lineSettings.lineColor);
+                        }
+                        break;
+                    case LineConfiguration.Left:
+                    case LineConfiguration.Right:
+                        if (lineSettings.lineSegments == 1) Draw.Line(GetBezierOrientedPoint(0).position, GetBezierOrientedPoint(3).position, lineSettings.lineColor);
+                        else
+                        {
+                            PolylinePath path = new PolylinePath();
+                            path.AddPoints(GetLinePoints(lineSettings.lineConfiguration));
+                            Draw.Polyline(path, false, lineSettings.lineColor);
+                        }
+                        break;
+                    case LineConfiguration.Double:
+                        if (lineSettings.lineSegments == 1)
+                        {
+                            Draw.Line(GetBezierOrientedPoint(0).LocalToWorld(GetLineOffset(LineConfiguration.Left)), GetBezierOrientedPoint(3).LocalToWorld(GetLineOffset(LineConfiguration.Left)), lineSettings.lineColor);
+                            Draw.Line(GetBezierOrientedPoint(0).LocalToWorld(GetLineOffset(LineConfiguration.Right)), GetBezierOrientedPoint(3).LocalToWorld(GetLineOffset(LineConfiguration.Right)), lineSettings.lineColor);
+                        }
+                        else
+                        {
+                            PolylinePath left = new(), right = new();
+                            left.AddPoints(GetLinePoints(LineConfiguration.Left));
+                            right.AddPoints(GetLinePoints(LineConfiguration.Right));
+                            Draw.Polyline(left, false, lineSettings.lineColor);
+                            Draw.Polyline(right, false, lineSettings.lineColor);
+                        }
+                        break;
+                }
+            }
+        }
+
+        public List<Vector3> GetLinePoints(LineConfiguration configuration)
+        {
+            List<Vector3> points = new List<Vector3>();
+
+            for (int i = 0; i <= lineSettings.lineSegments; i++)
+            {
+                float t = i / (float)lineSettings.lineSegments;
+                OrientedPoint currentPoint = GetBezierOrientedPoint(t);
+                points.Add(currentPoint.LocalToWorld(GetLineOffset(configuration)));
+            }
+            return points;
         }
 
         public bool GetSnapPoint(Vector3 origin, out OrientedPoint snapPoint, float snapRange)
@@ -120,13 +186,10 @@ namespace Assets.SplineEditor
                 case LineConfiguration.Center:
                 case LineConfiguration.Double:
                     return Vector3.zero;
-                    break;
                 case LineConfiguration.Left:
                     return Vector3.left * (lineSettings.lineSpacing / 2);
-                    break;
                 case LineConfiguration.Right:
                     return Vector3.right * (lineSettings.lineSpacing / 2);
-                    break;
                 default:
                     return Vector3.zero;
             }
@@ -193,8 +256,8 @@ namespace Assets.SplineEditor
             }
 
             lineOffset = GetLineOffset(lineSettings.lineConfiguration);
-            float thickness = lineSettings.lineConfiguration == LineConfiguration.Double ? 
-                lineSettings.lineSpacing + lineSettings.lineThickness : 
+            float thickness = lineSettings.lineConfiguration == LineConfiguration.Double ?
+                lineSettings.lineSpacing + lineSettings.lineThickness :
                 lineSettings.lineThickness;
             for (int i = 0; i < lineSettings.lineSegments; i++)
             {
@@ -206,9 +269,9 @@ namespace Assets.SplineEditor
 
             // Triangles
             List<int> triangles = new List<int>();
-            for (int i = 0; i < lineSettings.lineSegments * lineSettings.lineCount+1; i++)
+            for (int i = 0; i < lineSettings.lineSegments * lineSettings.lineCount + 1; i++)
             {
-                if (i == lineSettings.lineSegments) continue;         
+                if (i == lineSettings.lineSegments) continue;
 
                 int indexRoot = i * 2;
                 int indexInnerRoot = indexRoot + 1;

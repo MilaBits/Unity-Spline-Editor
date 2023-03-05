@@ -1,17 +1,18 @@
-﻿using System;
+﻿using Shapes;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace Assets.SplineEditor
+namespace SplineEditor
 {
     [RequireComponent(typeof(MeshFilter))]
     [RequireComponent(typeof(MeshRenderer))]
     [RequireComponent(typeof(PolygonCollider2D))]
     [RequireComponent(typeof(SnapTarget))]
     [ExecuteInEditMode]
-    internal class LineArc : MonoBehaviour, ISnapTarget
+    internal class LineArc : ImmediateModeShapeDrawer, ISnapTarget
     {
         [SerializeField]               public float radius = .5f;
         [SerializeField] [Range(0, 1)] public float fill = .5f;
@@ -64,6 +65,33 @@ namespace Assets.SplineEditor
             GenerateMesh();
 
             Undo.undoRedoPerformed += OnUndoRedo;
+        }
+
+        public override void DrawShapes(Camera cam)
+        {
+            using (Draw.Command(cam))
+            {
+                Draw.LineGeometry = LineGeometry.Flat2D;
+                Draw.ThicknessSpace = ThicknessSpace.Meters;
+                Draw.Thickness = lineSettings.lineThickness;
+
+                Draw.Matrix = transform.localToWorldMatrix;
+
+                switch (lineSettings.lineConfiguration)
+                {
+                    case LineConfiguration.Center:
+                        Draw.Arc(radius, 0, (float)(Math.PI * 2) * fill, ArcEndCap.Round, DiscColors.Flat(lineSettings.lineColor));
+                        break;
+                    case LineConfiguration.Left:
+                    case LineConfiguration.Right:
+                        Draw.Arc(radius + GetOffset(lineSettings.lineConfiguration), 0, (float)(Math.PI * 2) * fill, ArcEndCap.Round, DiscColors.Flat(lineSettings.lineColor));
+                        break;
+                    case LineConfiguration.Double:
+                        Draw.Arc(radius + GetOffset(LineConfiguration.Left), 0, (float)(Math.PI * 2) * fill, ArcEndCap.Round, DiscColors.Flat(lineSettings.lineColor));
+                        Draw.Arc(radius + GetOffset(LineConfiguration.Right), 0, (float)(Math.PI * 2) * fill, ArcEndCap.Round, DiscColors.Flat(lineSettings.lineColor));
+                        break;
+                }
+            }
         }
 
         private void OnUndoRedo()
