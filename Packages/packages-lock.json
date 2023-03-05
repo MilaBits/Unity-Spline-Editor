@@ -1,5 +1,13 @@
 {
   "dependencies": {
+    "com.acegikmo.shapes": {
+      "version": "file:E:/Projects/External Packages/Shapes-v.4.2.1",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.unity.textmeshpro": "2.1.6"
+      }
+    },
     "com.unity.2d.animation": {
       "version": "7.0.6",
       "depth": 1,
